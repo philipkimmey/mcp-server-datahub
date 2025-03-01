@@ -3,8 +3,8 @@ requires-python = ">=3.10"
 
 [[package]]
 name = "acryl-datahub"
-version = "1!0.0.0.dev0"
-source = { editable = "../datahub/metadata-ingestion" }
+version = "0.0.0.dev1"
+source = { url = "https://012efc5c.datahub-wheels.pages.dev/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl" }
 dependencies = [
     { name = "aiohttp" },
     { name = "avro" },
@@ -34,6 +34,9 @@ dependencies = [
     { name = "toml" },
     { name = "typing-extensions" },
     { name = "typing-inspect" },
+]
+wheels = [
+    { url = "https://012efc5c.datahub-wheels.pages.dev/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl", hash = "sha256:f3ce61a4669bb8e62924d32fec302041ad398c084199ec52378f7e237cc6a4a9" },
 ]
 
 [package.metadata]
@@ -3915,7 +3918,7 @@ dependencies = [
 
 [package.metadata]
 requires-dist = [
-    { name = "acryl-datahub", editable = "../datahub/metadata-ingestion" },
+    { name = "acryl-datahub", url = "https://012efc5c.datahub-wheels.pages.dev/artifacts/wheels/acryl_datahub-0.0.0.dev1-py3-none-any.whl" },
     { name = "mcp", extras = ["cli"], specifier = ">=1.3.0" },
 ]
 
