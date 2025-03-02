@@ -4,7 +4,7 @@ from typing import Optional
 import datahub
 from datahub import _version
 from datahub.sdk.main_client import DataHubClient
-from datahub.sdk.search_client import Filter
+from datahub.sdk.search_client import Filter, compile_filters
 from mcp.server.fastmcp import FastMCP
 
 is_dev_mode = _version.is_dev_mode()
@@ -121,7 +121,7 @@ query scrollUrnsWithFilters(
     variables = {
         "query": query,
         "types": client._graph._get_types(default_entity_types),  # TODO keep this?
-        "orFilters": client.search._compile_filters(filters),
+        "orFilters": compile_filters(filters),
         "batchSize": 10,
     }
 
