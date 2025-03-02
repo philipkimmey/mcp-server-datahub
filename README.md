@@ -3,6 +3,10 @@
 ### Setup
 
 ```bash
+uv sync --no-sources
+
+# Alternatively, if also developing on acryl-datahub:
+# Assumes the datahub repo is checked out at ../datahub
 uv sync
 ```
 
