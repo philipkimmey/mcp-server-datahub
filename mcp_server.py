@@ -25,21 +25,46 @@ def get_client() -> DataHubClient:
     return DataHubClient.from_env()
 
 
+entity_hydration_fragment_gql = (
+    pathlib.Path(__file__).parent / "gql/datahub_semantic_layer.gql"
+).read_text()
+
+
 @mcp.tool(description="Get an entity by its DataHub URN.")
 def get_entity(urn: str) -> dict:
     client = get_client()
 
-    # TODO: Migrate to new sdk
-    # return client.entities.get(urn)
+    # Create the GetEntity query using the fragment
+    query = (
+        entity_hydration_fragment_gql
+        + """
+    query entity($urn: String!) {
+        entity(urn: $urn) {
+            urn
+            ...entityPreview
+        }
+    }
+    """
+    )
+    # Execute the GraphQL query
+    variables = {"urn": urn}
+    result = client._graph.execute_graphql(query=query, variables=variables)
 
-    # TODO: strip out useless aspects / fields?
-    return client._graph.get_entity_raw(urn)
+    # Extract the entity data from the response
+    if "entity" in result:
+        return result["entity"]
+
+    # Return empty dict if entity not found
+    return {}
 
 
 @mcp.tool(
     description="Search across DataHub entities. \
 Returns both a truncated list of results \
-and facets/aggregations that can be used to iteratively refine the search filters."
+and facets/aggregations that can be used to iteratively refine the search filters. \
+Here are some example filters: \
+{ 'and': [ { 'entity_types': ['DATASET']}, { 'entity_subtypes' : ['Table']}]} \
+"
 )
 def search(query: str = "*", filters: Optional[Filter] = None) -> str:
     client = get_client()
@@ -53,7 +78,9 @@ def search(query: str = "*", filters: Optional[Filter] = None) -> str:
         "dataFlow",
     ]
 
-    graphql_query = """\
+    graphql_query = (
+        entity_hydration_fragment_gql
+        + """\
 fragment FacetEntityInfo on Entity {
   ... on Dataset {
     name
@@ -99,7 +126,7 @@ query scrollUrnsWithFilters(
       total
       searchResults {
         entity {
-          urn
+          ...entityPreview
         }
       }
       facets {
@@ -117,6 +144,7 @@ query scrollUrnsWithFilters(
     }
 }
 """
+    )
 
     variables = {
         "query": query,
