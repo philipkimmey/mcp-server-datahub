@@ -29,6 +29,64 @@ entity_hydration_fragment_gql = (
     pathlib.Path(__file__).parent / "gql/datahub_semantic_layer.gql"
 ).read_text()
 
+query_fragment_gql = """
+fragment platformFields on DataPlatform {
+    urn
+    type
+    lastIngested
+    name
+    properties {
+        type
+        displayName
+        datasetNameDelimiter
+        logoUrl
+    }
+    displayName
+    info {
+        type
+        displayName
+        datasetNameDelimiter
+        logoUrl
+    }
+}
+
+fragment query on QueryEntity {
+    urn
+    properties {
+        name
+        description
+        source
+        statement {
+            value
+            language
+        }
+        created {
+            time
+            actor
+        }
+        lastModified {
+            time
+            actor
+        }
+    }
+    platform {
+        ...platformFields
+    }
+    subjects {
+        dataset {
+            urn
+            type
+            name
+        }
+        schemaField {
+            urn
+            type
+            fieldPath
+        }
+    }
+}
+"""
+
 
 @mcp.tool(description="Get an entity by its DataHub URN.")
 def get_entity(urn: str) -> dict:
@@ -159,3 +217,45 @@ query scrollUrnsWithFilters(
     # e.g. strip all nulls?
 
     return response
+
+
+@mcp.tool(description="Use this tool to get the queries associated with a dataset.")
+def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> dict:
+    client = get_client()
+
+    # Create the ListQueries query using the fragment
+    query = (
+        query_fragment_gql
+        + """
+    query listQueries($input: ListQueriesInput!) {
+        listQueries(input: $input) {
+            start
+            total
+            count
+            queries {
+                ...query
+            }
+        }
+    }
+    """
+    )
+
+    # Set up variables for the query
+    variables = {"input": {"start": start, "count": count, "datasetUrn": dataset_urn}}
+
+    # Execute the GraphQL query
+    result = client._graph.execute_graphql(query=query, variables=variables)
+
+    # Extract the query data from the response
+    if "listQueries" in result:
+        return result["listQueries"]
+
+    # Return empty dict if no queries found
+    return {"start": start, "total": 0, "count": 0, "queries": []}
+
+
+if __name__ == "__main__":
+    urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,digital_market_hway.reporting.digital_media_performance,PROD)"
+    print(get_entity(urn))
+    print(search("data"))
+    print(get_dataset_queries(urn))
