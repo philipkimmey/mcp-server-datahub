@@ -618,22 +618,6 @@ fragment entityPreview on Entity {
         health {
             ...entityHealth
         }
-        usageStats(range: MONTH) {
-        buckets {
-            bucket
-            metrics {
-                totalSqlQueries
-            }
-        }
-        aggregations {
-            uniqueUserCount
-            totalSqlQueries
-            fields {
-                fieldName
-                count
-            }
-          }
-        } 
         statsSummary {
           queryCountLast30Days
           queryCountPercentileLast30Days

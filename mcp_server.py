@@ -1,11 +1,15 @@
+import json
 import pathlib
-from typing import Optional
+from typing import Any, Dict, Optional
 
 import datahub
 from datahub import _version
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import Filter, compile_filters
 from mcp.server.fastmcp import FastMCP
+from pydantic import BaseModel
+from datahub.ingestion.graph.client import DataHubGraph
+
 
 is_dev_mode = _version.is_dev_mode()
 datahub_package_dir = pathlib.Path(datahub.__file__).parent.parent.parent
@@ -27,6 +31,10 @@ def get_client() -> DataHubClient:
 
 entity_hydration_fragment_gql = (
     pathlib.Path(__file__).parent / "gql/datahub_semantic_layer.gql"
+).read_text()
+
+entity_details_fragment_gql = (
+    pathlib.Path(__file__).parent / "gql/entity_details.gql"
 ).read_text()
 
 query_fragment_gql = """
@@ -95,11 +103,13 @@ def get_entity(urn: str) -> dict:
     # Create the GetEntity query using the fragment
     query = (
         entity_hydration_fragment_gql
+        + entity_details_fragment_gql
         + """
     query entity($urn: String!) {
         entity(urn: $urn) {
             urn
             ...entityPreview
+            ...entityDetails
         }
     }
     """
@@ -117,14 +127,32 @@ def get_entity(urn: str) -> dict:
 
 
 @mcp.tool(
-    description="Search across DataHub entities. \
-Returns both a truncated list of results \
-and facets/aggregations that can be used to iteratively refine the search filters. \
-Here are some example filters: \
-{ 'and': [ { 'entity_types': ['DATASET']}, { 'entity_subtypes' : ['Table']}]} \
-"
+    description="""Search across DataHub entities.
+Returns both a truncated list of results
+and facets/aggregations that can be used to iteratively refine the search filters.
+To search for all entities, use the wildcard '*' as the query.
+Here are some example filters:
+- Production environment warehouse assets
+{
+"and": [
+            {"env": ["PROD"]},
+            {"platform": ["snowflake", "bigquery", "redshift"]},
+        ]
+    }
+}
+- All Snowflake tables
+{
+"and_":[
+  {"entity_type":["DATASET"]},
+  {"entity_type":"dataset","entity_subtype":"Table"}]},
+  {"platform": ["snowflake"]}
+  ]
+}
+"""
 )
-def search(query: str = "*", filters: Optional[Filter] = None) -> str:
+def search(
+    query: str = "*", filters: Optional[Filter] = None, num_results: int = 10
+) -> str:
     client = get_client()
 
     default_entity_types = [
@@ -208,7 +236,7 @@ query scrollUrnsWithFilters(
         "query": query,
         "types": client._graph._get_types(default_entity_types),  # TODO keep this?
         "orFilters": compile_filters(filters),
-        "batchSize": 10,
+        "batchSize": num_results,
     }
 
     response = client._graph.execute_graphql(graphql_query, variables)
@@ -254,8 +282,129 @@ def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> di
     return {"start": start, "total": 0, "count": 0, "queries": []}
 
 
+class AssetLineageDirective(BaseModel):
+    urn: str
+    upstream: bool
+    downstream: bool
+    num_hops: int
+
+
+class AssetLineageAPI:
+    def __init__(self, graph: DataHubGraph) -> None:
+        self.graph = graph
+
+    def get_degree_filter(self, num_hops: int) -> str:
+        """
+        num_hops: Number of hops to search for lineage
+        """
+        if num_hops < 1:
+            return ""
+        else:
+            values = [str(i) for i in range(1, num_hops + 1)]
+            return f"""
+            orFilters:[{{and: {{ field: "degree", values: {json.dumps(values)} }} }}]
+            """
+
+    def get_final_gql(self, urn, direction, num_hops=1):
+        return f"""{entity_hydration_fragment_gql}
+    query {{
+    searchAcrossLineage(input:{{
+        urn: "{urn}",
+        start:0,
+        count:30,
+        direction:{direction},
+        {self.get_degree_filter(num_hops)}
+    }}) {{
+        total
+        facets {{
+        field
+        displayName
+        aggregations {{
+            value
+            count
+            entity {{
+            urn
+            }}
+        }}
+        }}
+        searchResults {{
+        entity {{
+            urn
+            type
+            ... entityPreview
+        }}
+        degree
+        }}
+    }}
+    }}"""
+
+    def get_lineage(
+        self, asset_lineage_directive: AssetLineageDirective
+    ) -> Dict[str, Any]:
+        result = {asset_lineage_directive.urn: {}}
+        if asset_lineage_directive.upstream:
+            final_gql = self.get_final_gql(
+                urn=asset_lineage_directive.urn,
+                direction="UPSTREAM",
+                num_hops=asset_lineage_directive.num_hops,
+            )
+            result[asset_lineage_directive.urn]["upstreams"] = (
+                self.graph.execute_graphql(
+                    query=final_gql,
+                    variables={},
+                )
+            )
+        if asset_lineage_directive.downstream:
+            final_gql = self.get_final_gql(
+                urn=asset_lineage_directive.urn,
+                direction="DOWNSTREAM",
+                num_hops=asset_lineage_directive.num_hops,
+            )
+            result[asset_lineage_directive.urn]["downstreams"] = (
+                self.graph.execute_graphql(
+                    query=final_gql,
+                    variables={},
+                )
+            )
+
+        return result
+
+
+@mcp.tool(
+    description="Use this tool to get upstream or downstream lineage for any entity.\
+          Set upstream to True for upstream lineage, False for downstream lineage."
+)
+def get_lineage(urn: str, upstream: bool, num_hops: int = 1) -> dict:
+    client = get_client()
+    lineage_api = AssetLineageAPI(client._graph)
+    asset_lineage_directive = AssetLineageDirective(
+        urn=urn, upstream=upstream, downstream=not upstream, num_hops=num_hops
+    )
+    return lineage_api.get_lineage(asset_lineage_directive)
+
+
 if __name__ == "__main__":
-    urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,digital_market_hway.reporting.digital_media_performance,PROD)"
+    import sys
+
+    if len(sys.argv) > 1:
+        urn_or_query = sys.argv[1]
+    else:
+        urn_or_query = "*"
+        print("No query provided, will use '*' query")
+    if urn_or_query.startswith("urn:"):
+        urn = urn_or_query
+    else:
+        urn = None
+        query = urn_or_query
+    if urn is None:
+        search_data = search()
+        for entity in search_data["scrollAcrossEntities"]["searchResults"]:
+            print(entity["entity"]["urn"])
+            urn = entity["entity"]["urn"]
+
+    print("Getting entity:", urn)
     print(get_entity(urn))
-    print(search("data"))
+    print("Getting lineage:", urn)
+    print(get_lineage(urn, upstream=True))
+    print("Getting queries", urn)
     print(get_dataset_queries(urn))
