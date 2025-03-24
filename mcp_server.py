@@ -6,7 +6,7 @@ from datahub import _version
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters
-from datahub.sdk.search_filters import Filter, _CustomCondition
+from datahub.sdk.search_filters import Filter, FilterDsl
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
@@ -33,63 +33,7 @@ entity_details_fragment_gql = (
     pathlib.Path(__file__).parent / "gql/entity_details.gql"
 ).read_text()
 
-query_fragment_gql = """
-fragment platformFields on DataPlatform {
-    urn
-    type
-    lastIngested
-    name
-    properties {
-        type
-        displayName
-        datasetNameDelimiter
-        logoUrl
-    }
-    displayName
-    info {
-        type
-        displayName
-        datasetNameDelimiter
-        logoUrl
-    }
-}
-
-fragment query on QueryEntity {
-    urn
-    properties {
-        name
-        description
-        source
-        statement {
-            value
-            language
-        }
-        created {
-            time
-            actor
-        }
-        lastModified {
-            time
-            actor
-        }
-    }
-    platform {
-        ...platformFields
-    }
-    subjects {
-        dataset {
-            urn
-            type
-            name
-        }
-        schemaField {
-            urn
-            type
-            fieldPath
-        }
-    }
-}
-"""
+queries_gql = (pathlib.Path(__file__).parent / "gql/queries.gql").read_text()
 
 
 @mcp.tool(description="Get an entity by its DataHub URN.")
@@ -149,18 +93,8 @@ def search(
 ) -> str:
     client = get_client()
 
-    # default_entity_types = [
-    #     "container",
-    #     "dataset",
-    #     "dashboard",
-    #     "chart",
-    #     "dataJob",
-    #     "dataFlow",
-    # ]
-
     variables = {
         "query": query,
-        # "types": client._graph._get_types(default_entity_types),  # TODO enable this? or rely on the backend's default?
         "orFilters": compile_filters(filters),
         "batchSize": num_results,
     }
@@ -169,7 +103,7 @@ def search(
         search_gql,
         variables=variables,
         operation_name="search",
-    )
+    )["scrollAcrossEntities"]
 
     # TODO: post process
     # e.g. strip all nulls?
@@ -177,39 +111,18 @@ def search(
     return response
 
 
-@mcp.tool(description="Use this tool to get the queries associated with a dataset.")
+@mcp.tool(description="Use this tool to get the SQL queries associated with a dataset.")
 def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> dict:
     client = get_client()
-
-    # Create the ListQueries query using the fragment
-    query = (
-        query_fragment_gql
-        + """
-    query listQueries($input: ListQueriesInput!) {
-        listQueries(input: $input) {
-            start
-            total
-            count
-            queries {
-                ...query
-            }
-        }
-    }
-    """
-    )
 
     # Set up variables for the query
     variables = {"input": {"start": start, "count": count, "datasetUrn": dataset_urn}}
 
     # Execute the GraphQL query
-    result = client._graph.execute_graphql(query=query, variables=variables)
-
-    # Extract the query data from the response
-    if "listQueries" in result:
-        return result["listQueries"]
-
-    # Return empty dict if no queries found
-    return {"start": start, "total": 0, "count": 0, "queries": []}
+    result = client._graph.execute_graphql(
+        query=queries_gql, variables=variables, operation_name="listQueries"
+    )
+    return result["listQueries"]
 
 
 class AssetLineageDirective(BaseModel):
@@ -230,7 +143,7 @@ class AssetLineageAPI:
         if num_hops < 1:
             return None
         else:
-            return _CustomCondition(
+            return FilterDsl.custom_filter(
                 field="degree",
                 condition="EQUAL",
                 values=[str(i) for i in range(1, num_hops + 1)],
@@ -279,8 +192,9 @@ class AssetLineageAPI:
 
 
 @mcp.tool(
-    description="Use this tool to get upstream or downstream lineage for any entity.\
-          Set upstream to True for upstream lineage, False for downstream lineage."
+    description="""\
+Use this tool to get upstream or downstream lineage for any entity. \
+Set upstream to True for upstream lineage, False for downstream lineage."""
 )
 def get_lineage(urn: str, upstream: bool, num_hops: int = 1) -> dict:
     client = get_client()
