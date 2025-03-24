@@ -4,12 +4,11 @@ from typing import Any, Dict, Optional
 
 import datahub
 from datahub import _version
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import Filter, compile_filters
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
-from datahub.ingestion.graph.client import DataHubGraph
-
 
 is_dev_mode = _version.is_dev_mode()
 datahub_package_dir = pathlib.Path(datahub.__file__).parent.parent.parent
@@ -29,10 +28,7 @@ def get_client() -> DataHubClient:
     return DataHubClient.from_env()
 
 
-entity_hydration_fragment_gql = (
-    pathlib.Path(__file__).parent / "gql/datahub_semantic_layer.gql"
-).read_text()
-
+search_gql = (pathlib.Path(__file__).parent / "gql/search.gql").read_text()
 entity_details_fragment_gql = (
     pathlib.Path(__file__).parent / "gql/entity_details.gql"
 ).read_text()
@@ -102,8 +98,7 @@ def get_entity(urn: str) -> dict:
 
     # Create the GetEntity query using the fragment
     query = (
-        entity_hydration_fragment_gql
-        + entity_details_fragment_gql
+        entity_details_fragment_gql
         + """
     query entity($urn: String!) {
         entity(urn: $urn) {
@@ -128,26 +123,34 @@ def get_entity(urn: str) -> dict:
 
 @mcp.tool(
     description="""Search across DataHub entities.
-Returns both a truncated list of results
-and facets/aggregations that can be used to iteratively refine the search filters.
+
+Returns both a truncated list of results and facets/aggregations that can be used to iteratively refine the search filters.
 To search for all entities, use the wildcard '*' as the query.
+
+A typical workflow will involve multiple calls to this search tool, with each call refining the filters based on the facets/aggregations returned in the previous call.
+After the final search is performed, you'll want to use the other tools to get more details about the relevant entities.
+
 Here are some example filters:
 - Production environment warehouse assets
+```
 {
-"and": [
-            {"env": ["PROD"]},
-            {"platform": ["snowflake", "bigquery", "redshift"]},
-        ]
-    }
-}
-- All Snowflake tables
-{
-"and_":[
-  {"entity_type":["DATASET"]},
-  {"entity_type":"dataset","entity_subtype":"Table"}]},
-  {"platform": ["snowflake"]}
+  "and": [
+    {"env": ["PROD"]},
+    {"platform": ["snowflake", "bigquery", "redshift"]}
   ]
 }
+```
+
+- All Snowflake tables
+```
+{
+  "and_":[
+    {"entity_type": ["DATASET"]},
+    {"entity_type": "dataset", "entity_subtype": "Table"},
+    {"platform": ["snowflake"]}
+  ]
+}
+```
 """
 )
 def search(
@@ -155,91 +158,27 @@ def search(
 ) -> str:
     client = get_client()
 
-    default_entity_types = [
-        "container",
-        "dataset",
-        "dashboard",
-        "chart",
-        "dataJob",
-        "dataFlow",
-    ]
-
-    graphql_query = (
-        entity_hydration_fragment_gql
-        + """\
-fragment FacetEntityInfo on Entity {
-  ... on Dataset {
-    name
-    properties {
-      name
-    }
-  }
-  ... on Container {
-    subTypes {
-      typeNames
-    }
-    properties {
-      name
-    }
-  }
-  ... on GlossaryTerm {
-    properties {
-      name
-    }
-  }
-}
-
-query scrollUrnsWithFilters(
-    $types: [EntityType!],
-    $query: String!,
-    $orFilters: [AndFilterInput!],
-    $batchSize: Int!,
-    $scrollId: String) {
-
-    scrollAcrossEntities(input: {
-        query: $query,
-        count: $batchSize,
-        scrollId: $scrollId,
-        types: $types,
-        orFilters: $orFilters,
-        searchFlags: {
-            skipHighlighting: true
-            # skipAggregates: true
-            maxAggValues: 5
-        }
-    }) {
-      count
-      total
-      searchResults {
-        entity {
-          ...entityPreview
-        }
-      }
-      facets {
-        field
-        displayName
-        aggregations {
-          value
-          count
-          displayName
-          entity {
-            ...FacetEntityInfo
-          }
-        }
-      }
-    }
-}
-"""
-    )
+    # default_entity_types = [
+    #     "container",
+    #     "dataset",
+    #     "dashboard",
+    #     "chart",
+    #     "dataJob",
+    #     "dataFlow",
+    # ]
 
     variables = {
         "query": query,
-        "types": client._graph._get_types(default_entity_types),  # TODO keep this?
+        # "types": client._graph._get_types(default_entity_types),  # TODO enable this? or rely on the backend's default?
         "orFilters": compile_filters(filters),
         "batchSize": num_results,
     }
 
-    response = client._graph.execute_graphql(graphql_query, variables)
+    response = client._graph.execute_graphql(
+        search_gql,
+        variables=variables,
+        operation_name="search",
+    )
 
     # TODO: post process
     # e.g. strip all nulls?
