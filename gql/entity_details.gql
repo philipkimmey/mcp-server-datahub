@@ -1287,3 +1287,36 @@ fragment entityDetails on Entity {
     }
   }
 }
+
+query GetEntity($urn: String!) {
+  entity(urn: $urn) {
+    urn
+    ...entityPreview
+    ...entityDetails
+  }
+}
+
+query GetEntityLineage($input: SearchAcrossLineageInput!) {
+  searchAcrossLineage(input: $input) {
+    total
+    facets {
+      field
+      displayName
+      aggregations {
+        value
+        count
+        entity {
+          urn
+        }
+      }
+    }
+    searchResults {
+      entity {
+        urn
+        type
+        ...entityPreview
+      }
+      degree
+    }
+  }
+}

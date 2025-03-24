@@ -1,4 +1,3 @@
-import json
 import pathlib
 from typing import Any, Dict, Optional
 
@@ -6,7 +5,8 @@ import datahub
 from datahub import _version
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
-from datahub.sdk.search_client import Filter, compile_filters
+from datahub.sdk.search_client import compile_filters
+from datahub.sdk.search_filters import Filter, _CustomCondition
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
@@ -96,22 +96,13 @@ fragment query on QueryEntity {
 def get_entity(urn: str) -> dict:
     client = get_client()
 
-    # Create the GetEntity query using the fragment
-    query = (
-        entity_details_fragment_gql
-        + """
-    query entity($urn: String!) {
-        entity(urn: $urn) {
-            urn
-            ...entityPreview
-            ...entityDetails
-        }
-    }
-    """
-    )
     # Execute the GraphQL query
     variables = {"urn": urn}
-    result = client._graph.execute_graphql(query=query, variables=variables)
+    result = client._graph.execute_graphql(
+        query=entity_details_fragment_gql,
+        variables=variables,
+        operation_name="GetEntity",
+    )
 
     # Extract the entity data from the response
     if "entity" in result:
@@ -232,77 +223,55 @@ class AssetLineageAPI:
     def __init__(self, graph: DataHubGraph) -> None:
         self.graph = graph
 
-    def get_degree_filter(self, num_hops: int) -> str:
+    def get_degree_filter(self, num_hops: int) -> Optional[Filter]:
         """
         num_hops: Number of hops to search for lineage
         """
         if num_hops < 1:
-            return ""
+            return None
         else:
-            values = [str(i) for i in range(1, num_hops + 1)]
-            return f"""
-            orFilters:[{{and: {{ field: "degree", values: {json.dumps(values)} }} }}]
-            """
-
-    def get_final_gql(self, urn, direction, num_hops=1):
-        return f"""{entity_hydration_fragment_gql}
-    query {{
-    searchAcrossLineage(input:{{
-        urn: "{urn}",
-        start:0,
-        count:30,
-        direction:{direction},
-        {self.get_degree_filter(num_hops)}
-    }}) {{
-        total
-        facets {{
-        field
-        displayName
-        aggregations {{
-            value
-            count
-            entity {{
-            urn
-            }}
-        }}
-        }}
-        searchResults {{
-        entity {{
-            urn
-            type
-            ... entityPreview
-        }}
-        degree
-        }}
-    }}
-    }}"""
+            return _CustomCondition(
+                field="degree",
+                condition="EQUAL",
+                values=[str(i) for i in range(1, num_hops + 1)],
+            )
 
     def get_lineage(
         self, asset_lineage_directive: AssetLineageDirective
     ) -> Dict[str, Any]:
         result = {asset_lineage_directive.urn: {}}
+
+        degree_filter = self.get_degree_filter(asset_lineage_directive.num_hops)
+        variables = {
+            "urn": asset_lineage_directive.urn,
+            "start": 0,
+            "count": 30,
+            "orFilters": compile_filters(degree_filter) if degree_filter else None,
+        }
         if asset_lineage_directive.upstream:
-            final_gql = self.get_final_gql(
-                urn=asset_lineage_directive.urn,
-                direction="UPSTREAM",
-                num_hops=asset_lineage_directive.num_hops,
-            )
             result[asset_lineage_directive.urn]["upstreams"] = (
                 self.graph.execute_graphql(
-                    query=final_gql,
-                    variables={},
+                    query=entity_details_fragment_gql,
+                    variables={
+                        "input": {
+                            **variables,
+                            "direction": "UPSTREAM",
+                        }
+                    },
+                    operation_name="GetEntityLineage",
                 )
             )
         if asset_lineage_directive.downstream:
-            final_gql = self.get_final_gql(
-                urn=asset_lineage_directive.urn,
-                direction="DOWNSTREAM",
-                num_hops=asset_lineage_directive.num_hops,
-            )
             result[asset_lineage_directive.urn]["downstreams"] = (
                 self.graph.execute_graphql(
-                    query=final_gql,
-                    variables={},
+                    query=entity_details_fragment_gql,
+                    variables={
+                        "input": {
+                            **variables,
+                            "direction": "DOWNSTREAM",
+                        }
+                    },
+                    operation_name="GetEntityLineage",
                 )
             )
 
