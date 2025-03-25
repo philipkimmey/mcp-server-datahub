@@ -1,25 +1,26 @@
 fragment platformFields on DataPlatform {
   urn
-  type
-  lastIngested
+  # type
+  # lastIngested
   name
-  properties {
-    type
-    displayName
-    datasetNameDelimiter
-    logoUrl
-    __typename
-  }
-  displayName
-  info {
-    type
-    displayName
-    datasetNameDelimiter
-    logoUrl
-    __typename
-  }
+  # properties {
+  #   type
+  #   displayName
+  #   datasetNameDelimiter
+  #   logoUrl
+  #   __typename
+  # }
+  # displayName
+  # info {
+  #   type
+  #   displayName
+  #   datasetNameDelimiter
+  #   logoUrl
+  #   __typename
+  # }
   __typename
 }
+
 fragment globalTagsFields on GlobalTags {
   tags {
     tag {
@@ -35,7 +36,7 @@ fragment globalTagsFields on GlobalTags {
       __typename
     }
     # context
-    associatedUrn
+    # associatedUrn
     __typename
   }
   __typename
@@ -71,7 +72,7 @@ fragment ownershipFields on Ownership {
         editableProperties {
           displayName
           title
-          pictureLink
+          # pictureLink
           email
           __typename
         }
@@ -103,7 +104,7 @@ fragment ownershipFields on Ownership {
               __typename
             }
             editableInfo {
-              pictureLink
+              # pictureLink
               teams
               skills
               __typename
@@ -124,7 +125,7 @@ fragment ownershipFields on Ownership {
               __typename
             }
             editableInfo {
-              pictureLink
+              # pictureLink
               teams
               skills
               __typename
@@ -153,7 +154,7 @@ fragment ownershipFields on Ownership {
       }
       __typename
     }
-    associatedUrn
+    # associatedUrn
     __typename
   }
   lastModified {
@@ -265,7 +266,7 @@ fragment glossaryTerms on GlossaryTerms {
       __typename
     }
     # context
-    associatedUrn
+    # associatedUrn
     __typename
   }
   __typename
@@ -301,7 +302,7 @@ fragment entityDomain on DomainAssociation {
     }
     __typename
   }
-  associatedUrn
+  # associatedUrn
   __typename
 }
 
@@ -512,7 +513,7 @@ fragment nonConflictingPlatformFields on DataPlatform {
   properties {
     displayName
     datasetNameDelimiter
-    logoUrl
+    # logoUrl
     __typename
   }
   displayName
@@ -520,7 +521,7 @@ fragment nonConflictingPlatformFields on DataPlatform {
     type
     displayName
     datasetNameDelimiter
-    logoUrl
+    # logoUrl
     __typename
   }
   __typename
@@ -664,7 +665,7 @@ fragment entityPreview on Entity {
         editableProperties {
           displayName
           title
-          pictureLink
+          # pictureLink
         }
       }
     }
@@ -682,7 +683,7 @@ fragment entityPreview on Entity {
     editableProperties {
       displayName
       title
-      pictureLink
+      # pictureLink
     }
   }
   ... on CorpGroup {
@@ -1029,7 +1030,7 @@ fragment businessAttribute on BusinessAttributeAssociation {
               name
             }
           }
-          associatedUrn
+          # associatedUrn
         }
       }
       glossaryTerms {
@@ -1041,12 +1042,12 @@ fragment businessAttribute on BusinessAttributeAssociation {
               name
             }
           }
-          associatedUrn
+          # associatedUrn
         }
       }
     }
   }
-  associatedUrn
+  # associatedUrn
 }
 
 fragment structuredPropertyFields on StructuredPropertyEntity {
@@ -1101,7 +1102,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         urn
         editableProperties {
           displayName
-          pictureLink
+          # pictureLink
         }
         ...entityDisplayNameFields
       }
@@ -1112,7 +1113,7 @@ fragment structuredPropertyFields on StructuredPropertyEntity {
         urn
         editableProperties {
           displayName
-          pictureLink
+          # pictureLink
         }
         ...entityDisplayNameFields
       }
@@ -1145,7 +1146,7 @@ fragment structuredPropertiesFields on StructuredPropertiesEntry {
     type
     ...entityDisplayNameFields
   }
-  associatedUrn
+  # associatedUrn
 }
 
 fragment entitySchemaFieldEntityFields on SchemaFieldEntity {
@@ -1269,22 +1270,22 @@ fragment datasetSchema on Dataset {
 fragment entityDetails on Entity {
   ... on Dataset {
     ...datasetSchema
-    usageStats(range: MONTH) {
-      buckets {
-        bucket
-        metrics {
-          totalSqlQueries
-        }
-      }
-      aggregations {
-        uniqueUserCount
-        totalSqlQueries
-        fields {
-          fieldName
-          count
-        }
-      }
-    }
+    # usageStats(range: MONTH) {
+    #   buckets {
+    #     bucket
+    #     metrics {
+    #       totalSqlQueries
+    #     }
+    #   }
+    #   aggregations {
+    #     uniqueUserCount
+    #     totalSqlQueries
+    #     fields {
+    #       fieldName
+    #       count
+    #     }
+    #   }
+    # }
   }
 }
 

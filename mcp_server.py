@@ -36,6 +36,19 @@ entity_details_fragment_gql = (
 queries_gql = (pathlib.Path(__file__).parent / "gql/queries.gql").read_text()
 
 
+def _clean_gql_response(response: Any) -> Any:
+    if isinstance(response, dict):
+        return {
+            k: _clean_gql_response(v)
+            for k, v in response.items()
+            if v is not None and k not in {"__typename"}
+        }
+    elif isinstance(response, list):
+        return [_clean_gql_response(item) for item in response]
+    else:
+        return response
+
+
 @mcp.tool(description="Get an entity by its DataHub URN.")
 def get_entity(urn: str) -> dict:
     client = get_client()
