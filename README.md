@@ -80,3 +80,11 @@ uv sync
 source .venv/bin/activate
 mcp dev mcp_server.py
 ```
+
+### Run tests
+
+The test suite is currently very simplistic, and requires a live DataHub instance.
+
+```bash
+pytest
+```
