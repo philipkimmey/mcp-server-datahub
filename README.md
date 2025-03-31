@@ -12,17 +12,29 @@ Supports both DataHub OSS and DataHub Cloud.
 - Traversing the lineage graph, both upstream and downstream
 - Listing SQL queries associated with a dataset
 
+## Demo
+
+Check out the [demo video](https://youtu.be/VXRvHIZ3Eww?t=1878), done in collaboration with the team at Block.
+
 ## Usage
 
-For authentication, you can either use `datahub init` to configure a global `~/.datahubenv` file, or you can set the appropriate environment variables:
+For authentication, you'll need to set the following environment variables:
 
 ```bash
-uvx --from acryl-datahub datahub init   # follow the prompts
-
-# Alternatively, use these environment variables:
 export DATAHUB_GMS_URL=https://name.acryl.io/gms
 export DATAHUB_GMS_TOKEN=<your-token>
 ```
+
+<details>
+<summary>Alternative: Using ~/.datahubenv for authentication</summary>
+
+You can also use a `~/.datahubenv` file to configure your authentication. The easiest way to create this file is to run `datahub init` and follow the prompts.
+
+```bash
+uvx --from acryl-datahub datahub init
+```
+
+</details>
 
 ### Claude Desktop
 
@@ -68,6 +80,9 @@ In `.cursor/mcp.json`, add the following:
 command: uvx
 args:
   - mcp-server-datahub
+env:
+  DATAHUB_GMS_URL: <your-datahub-url>
+  DATAHUB_GMS_TOKEN: <your-datahub-token>
 ```
 
 ## Developing
