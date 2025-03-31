@@ -164,8 +164,8 @@ class AssetLineageAPI:
 
     def get_lineage(
         self, asset_lineage_directive: AssetLineageDirective
-    ) -> Dict[str, Any]:
-        result = {asset_lineage_directive.urn: {}}
+    ) -> Dict[str, Dict[str, Any]]:
+        result: Dict[str, Dict[str, Any]] = {asset_lineage_directive.urn: {}}
 
         degree_filter = self.get_degree_filter(asset_lineage_directive.num_hops)
         variables = {
@@ -226,6 +226,7 @@ if __name__ == "__main__":
     else:
         urn_or_query = "*"
         print("No query provided, will use '*' query")
+    urn: Optional[str] = None
     if urn_or_query.startswith("urn:"):
         urn = urn_or_query
     else:
