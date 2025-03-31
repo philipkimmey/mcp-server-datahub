@@ -103,7 +103,7 @@ Here are some example filters:
 )
 def search(
     query: str = "*", filters: Optional[Filter] = None, num_results: int = 10
-) -> str:
+) -> dict:
     client = get_client()
 
     variables = {
@@ -234,9 +234,10 @@ if __name__ == "__main__":
         query = urn_or_query
     if urn is None:
         search_data = search()
-        for entity in search_data["scrollAcrossEntities"]["searchResults"]:
+        for entity in search_data["searchResults"]:
             print(entity["entity"]["urn"])
             urn = entity["entity"]["urn"]
+    assert urn is not None
 
     print("Getting entity:", urn)
     print(get_entity(urn))

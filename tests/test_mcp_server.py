@@ -1,7 +1,12 @@
 import pydantic
 from datahub.sdk.search_filters import Filter
 
-from mcp_server import get_dataset_queries, get_entity, get_lineage, search
+from mcp_server_datahub.mcp_server import (
+    get_dataset_queries,
+    get_entity,
+    get_lineage,
+    search,
+)
 
 _test_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)"
 
