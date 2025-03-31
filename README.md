@@ -33,7 +33,11 @@ In your `claude_desktop_config.json` file, add the following:
   "mcpServers": {
     "datahub": {
       "command": "uvx",
-      "args": ["mcp-server-datahub"]
+      "args": ["mcp-server-datahub"],
+      "env": {
+        "DATAHUB_GMS_URL": "<your-datahub-url>",
+        "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
+      }
     }
   }
 }
@@ -48,8 +52,11 @@ In `.cursor/mcp.json`, add the following:
   "mcpServers": {
     "datahub": {
       "command": "uvx",
-      "args": ["mcp-server-datahub"]
-      "env": {}
+      "args": ["mcp-server-datahub"],
+      "env": {
+        "DATAHUB_GMS_URL": "<your-datahub-url>",
+        "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
+      }
     }
   }
 }
