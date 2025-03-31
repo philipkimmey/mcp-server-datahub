@@ -38,11 +38,7 @@ query search(
       scrollId: $scrollId
       types: $types
       orFilters: $orFilters
-      searchFlags: {
-        skipHighlighting: true
-        # skipAggregates: true
-        maxAggValues: 5
-      }
+      searchFlags: { skipHighlighting: true, maxAggValues: 5 }
     }
   ) {
     count

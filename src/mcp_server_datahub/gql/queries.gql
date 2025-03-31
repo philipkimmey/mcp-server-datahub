@@ -1,23 +1,6 @@
 fragment platformFields on DataPlatform {
   urn
-  # type
-  # lastIngested
   name
-  # properties {
-  #   type
-  #   displayName
-  #   datasetNameDelimiter
-  #   logoUrl
-  #   __typename
-  # }
-  # displayName
-  # info {
-  #   type
-  #   displayName
-  #   datasetNameDelimiter
-  #   logoUrl
-  #   __typename
-  # }
   __typename
 }
 

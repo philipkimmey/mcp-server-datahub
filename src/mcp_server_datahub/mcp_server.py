@@ -38,10 +38,13 @@ queries_gql = (pathlib.Path(__file__).parent / "gql/queries.gql").read_text()
 
 def _clean_gql_response(response: Any) -> Any:
     if isinstance(response, dict):
+        banned_keys = {
+            "__typename",
+        }
         return {
             k: _clean_gql_response(v)
             for k, v in response.items()
-            if v is not None and k not in {"__typename"}
+            if v is not None and k not in banned_keys
         }
     elif isinstance(response, list):
         return [_clean_gql_response(item) for item in response]
