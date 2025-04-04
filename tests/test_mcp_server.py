@@ -1,4 +1,8 @@
+from typing import Iterable
+
 import pydantic
+import pytest
+from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_filters import Filter
 
 from mcp_server_datahub.mcp_server import (
@@ -6,9 +10,16 @@ from mcp_server_datahub.mcp_server import (
     get_entity,
     get_lineage,
     search,
+    with_client,
 )
 
 _test_urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,long_tail_companions.analytics.pet_details,PROD)"
+
+
+@pytest.fixture(autouse=True, scope="session")
+def setup_client() -> Iterable[None]:
+    with with_client(DataHubClient.from_env()):
+        yield
 
 
 def test_get_entity() -> None:

@@ -3,7 +3,7 @@
 A [Model Context Protocol](https://modelcontextprotocol.io/) server implementation for [DataHub](https://datahubproject.io/).
 This enables AI agents to query DataHub for metadata and context about your data ecosystem.
 
-Supports both DataHub OSS and DataHub Cloud.
+Supports both DataHub Core and DataHub Cloud.
 
 ## Features
 
