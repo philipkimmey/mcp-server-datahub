@@ -13,7 +13,6 @@ fragment globalTagsFields on GlobalTags {
       description
       properties {
         name
-        colorHex
         __typename
       }
       __typename
@@ -29,15 +28,11 @@ fragment ownershipFields on Ownership {
       ... on CorpUser {
         urn
         type
-        # username
         properties {
           active
           displayName
           title
           email
-          # firstName
-          # lastName
-          # fullName
           __typename
         }
         editableProperties {
@@ -62,15 +57,11 @@ fragment ownershipFields on Ownership {
           email
           admins {
             urn
-            # username
             info {
               active
               displayName
               title
               email
-              # firstName
-              # lastName
-              # fullName
               __typename
             }
             editableInfo {
@@ -82,15 +73,11 @@ fragment ownershipFields on Ownership {
           }
           members {
             urn
-            # username
             properties {
               active
               displayName
               title
               email
-              # firstName
-              # lastName
-              # fullName
               __typename
             }
             editableInfo {
@@ -608,15 +595,11 @@ fragment entityPreview on Entity {
       sizeInBytesPercentile
       topUsersLast30Days {
         urn
-        # username
         properties {
           active
           displayName
           email
           title
-          # firstName
-          # lastName
-          # fullName
         }
         editableProperties {
           displayName
@@ -626,15 +609,11 @@ fragment entityPreview on Entity {
     }
   }
   ... on CorpUser {
-    # username
     properties {
       active
       displayName
       email
       title
-      # firstName
-      # lastName
-      # fullName
     }
     editableProperties {
       displayName
@@ -1148,9 +1127,7 @@ fragment schemaMetadataFields on SchemaMetadata {
   datasetUrn
   name
   platformUrn
-  # version
   cluster
-  # hash
   platformSchema {
     ... on TableSchema {
       schema
