@@ -18,23 +18,32 @@ Check out the [demo video](https://youtu.be/VXRvHIZ3Eww?t=1878), done in collabo
 
 ## Usage
 
-For authentication, you'll need to set the following environment variables:
+1. Install [`uv`](https://github.com/astral-sh/uv)
 
-```bash
-export DATAHUB_GMS_URL=https://name.acryl.io/gms
-export DATAHUB_GMS_TOKEN=<your-token>
-```
+   ```bash
+   # On macOS and Linux.
+   curl -LsSf https://astral.sh/uv/install.sh | sh
+   ```
 
-<details>
-<summary>Alternative: Using ~/.datahubenv for authentication</summary>
+2. Locate your authentication details
 
-You can also use a `~/.datahubenv` file to configure your authentication. The easiest way to create this file is to run `datahub init` and follow the prompts.
+   For authentication, you'll need the following:
 
-```bash
-uvx --from acryl-datahub datahub init
-```
+   - The URL of your DataHub instance e.g. `https://tenant.acryl.io/gms`
+   - A [personal access token](https://datahubproject.io/docs/authentication/personal-access-tokens/)
 
-</details>
+   <details>
+   <summary>Alternative: Using ~/.datahubenv for authentication</summary>
+
+   You can also use a `~/.datahubenv` file to configure your authentication. The easiest way to create this file is to run `datahub init` and follow the prompts.
+
+   ```bash
+   uvx --from acryl-datahub datahub init
+   ```
+
+   </details>
+
+3. Configure your MCP client. See below - this will vary depending on your agent.
 
 ### Claude Desktop
 
