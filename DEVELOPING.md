@@ -15,7 +15,7 @@ uv sync
 
 ```bash
 source .venv/bin/activate
-mcp dev mcp_server.py
+mcp dev src/mcp_server_datahub/mcp_server.py
 ```
 
 ### Run tests
