@@ -47,13 +47,15 @@ Check out the [demo video](https://youtu.be/VXRvHIZ3Eww?t=1878), done in collabo
 
 ### Claude Desktop
 
+Run `which uvx` to find the full path to the `uvx` command.
+
 In your `claude_desktop_config.json` file, add the following:
 
 ```json
 {
   "mcpServers": {
     "datahub": {
-      "command": "uvx",
+      "command": "<full-path-to-uvx>",  # e.g. /Users/hsheth/.local/bin/uvx
       "args": ["mcp-server-datahub"],
       "env": {
         "DATAHUB_GMS_URL": "<your-datahub-url>",
@@ -93,6 +95,18 @@ env:
   DATAHUB_GMS_URL: <your-datahub-url>
   DATAHUB_GMS_TOKEN: <your-datahub-token>
 ```
+
+### Troubleshooting
+
+#### `spawn uvx ENOENT`
+
+The full stack trace might look like this:
+
+```
+2025-04-08T19:58:16.593Z [datahub] [error] spawn uvx ENOENT {"stack":"Error: spawn uvx ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:285:19)\n    at onErrorNT (node:internal/child_process:483:16)\n    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)"}
+```
+
+Solution: Replace the `uvx` bit of the command with the output of `which uvx`.
 
 ## Developing
 
