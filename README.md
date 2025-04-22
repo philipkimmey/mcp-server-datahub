@@ -51,7 +51,7 @@ Run `which uvx` to find the full path to the `uvx` command.
 
 In your `claude_desktop_config.json` file, add the following:
 
-```json
+```js
 {
   "mcpServers": {
     "datahub": {
