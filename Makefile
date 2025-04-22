@@ -21,6 +21,16 @@ lint:
 test:
 	uv run pytest tests/
 
+# Publish
+publish:
+	@if [ -z "$$UV_PUBLISH_TOKEN" ]; then \
+		echo "Error: UV_PUBLISH_TOKEN environment variable is not set"; \
+		exit 1; \
+	fi
+	uv build
+	uv publish
+	rm -r dist
+
 # Clean up build artifacts
 clean:
 	rm -rf build/

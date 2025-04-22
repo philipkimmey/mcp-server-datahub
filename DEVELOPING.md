@@ -27,7 +27,5 @@ make test
 
 ```bash
 export UV_PUBLISH_TOKEN=...
-uv build
-uv publish
-rm -r dist
+make publish
 ```

@@ -47,7 +47,7 @@ def _execute_graphql(
 ) -> Any:
     try:
         # Only DataHub Cloud has a frontend base url.
-        graph.frontend_base_url
+        _ = graph.frontend_base_url
     except ValueError:
         pass
     else:
