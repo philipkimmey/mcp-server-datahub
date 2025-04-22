@@ -41,7 +41,7 @@ def test_search() -> None:
     filters_json = {
         "and_": [
             {"entity_type": ["DATASET"]},
-            {"entity_type": "dataset", "entity_subtype": "Table"},
+            {"entity_subtype": "Table"},
             {"platform": ["snowflake"]},
         ]
     }

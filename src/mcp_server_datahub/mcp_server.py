@@ -1,7 +1,7 @@
 import contextlib
 import contextvars
 import pathlib
-from typing import Any, Dict, Iterable, Optional
+from typing import Any, Dict, Iterator, Optional
 
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
@@ -13,7 +13,7 @@ from pydantic import BaseModel
 mcp = FastMCP(name="datahub")
 
 
-_mcp_dh_client = contextvars.ContextVar("_mcp_dh_client")
+_mcp_dh_client = contextvars.ContextVar[DataHubClient]("_mcp_dh_client")
 
 
 def get_client() -> DataHubClient:
@@ -26,7 +26,7 @@ def set_client(client: DataHubClient) -> None:
 
 
 @contextlib.contextmanager
-def with_client(client: DataHubClient) -> Iterable[None]:
+def with_client(client: DataHubClient) -> Iterator[None]:
     token = _mcp_dh_client.set(client)
     try:
         yield
@@ -128,7 +128,7 @@ Here are some example filters:
 {
   "and_":[
     {"entity_type": ["DATASET"]},
-    {"entity_type": "dataset", "entity_subtype": "Table"},
+    {"entity_subtype": "Table"},
     {"platform": ["snowflake"]}
   ]
 }
@@ -142,9 +142,11 @@ def search(
 ) -> dict:
     client = get_client()
 
+    types, compiled_filters = compile_filters(filters)
     variables = {
         "query": query,
-        "orFilters": compile_filters(filters),
+        "types": types,
+        "orFilters": compiled_filters,
         "batchSize": num_results,
     }
 
@@ -154,9 +156,6 @@ def search(
         variables=variables,
         operation_name="search",
     )["scrollAcrossEntities"]
-
-    # TODO: post process
-    # e.g. strip all nulls?
 
     return _clean_gql_response(response)
 
@@ -208,11 +207,13 @@ class AssetLineageAPI:
         result: Dict[str, Dict[str, Any]] = {asset_lineage_directive.urn: {}}
 
         degree_filter = self.get_degree_filter(asset_lineage_directive.num_hops)
+        types, compiled_filters = compile_filters(degree_filter)
         variables = {
             "urn": asset_lineage_directive.urn,
             "start": 0,
             "count": 30,
-            "orFilters": compile_filters(degree_filter) if degree_filter else None,
+            "types": types,
+            "orFilters": compiled_filters,
         }
         if asset_lineage_directive.upstream:
             result[asset_lineage_directive.urn]["upstreams"] = _clean_gql_response(

@@ -3,10 +3,7 @@
 ### Setup
 
 ```bash
-uv sync --no-sources
-# Alternatively, if also developing on acryl-datahub:
-# Assumes the datahub repo is checked out at ../datahub
-uv sync
+make setup
 
 # <authentication is the same as in production>
 ```
@@ -23,7 +20,7 @@ mcp dev src/mcp_server_datahub/mcp_server.py
 The test suite is currently very simplistic, and requires a live DataHub instance.
 
 ```bash
-pytest
+make test
 ```
 
 ## Publishing
