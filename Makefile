@@ -1,4 +1,4 @@
-.PHONY: setup lint test clean format
+.PHONY: setup lint test clean format format-check
 
 # Setup development environment
 setup:
@@ -7,6 +7,10 @@ setup:
 # Format code with ruff
 format:
 	uv run ruff format src tests
+
+# Check code formatting with ruff
+format-check:
+	uv run ruff format --check src tests
 
 # Lint with ruff and mypy
 lint:
