@@ -55,7 +55,7 @@ In your `claude_desktop_config.json` file, add the following:
 {
   "mcpServers": {
     "datahub": {
-      "command": "<full-path-to-uvx>",  # e.g. /Users/hsheth/.local/bin/uvx
+      "command": "<full-path-to-uvx>",  // e.g. /Users/hsheth/.local/bin/uvx
       "args": ["mcp-server-datahub"],
       "env": {
         "DATAHUB_GMS_URL": "<your-datahub-url>",
