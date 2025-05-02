@@ -1,5 +1,6 @@
 import contextlib
 import contextvars
+import json
 import pathlib
 from typing import Any, Dict, Iterator, Optional
 
@@ -285,8 +286,8 @@ if __name__ == "__main__":
     assert urn is not None
 
     print("Getting entity:", urn)
-    print(get_entity(urn))
+    print(json.dumps(get_entity(urn), indent=2))
     print("Getting lineage:", urn)
-    print(get_lineage(urn, upstream=True))
+    print(json.dumps(get_lineage(urn, upstream=True), indent=2))
     print("Getting queries", urn)
-    print(get_dataset_queries(urn))
+    print(json.dumps(get_dataset_queries(urn), indent=2))
