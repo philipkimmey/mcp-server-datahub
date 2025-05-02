@@ -8,6 +8,7 @@ from datahub.ingestion.graph.client import DataHubGraph
 from datahub.sdk.main_client import DataHubClient
 from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl
+from datahub.utilities.ordered_set import OrderedSet
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
@@ -169,13 +170,28 @@ def get_dataset_queries(dataset_urn: str, start: int = 0, count: int = 10) -> di
     variables = {"input": {"start": start, "count": count, "datasetUrn": dataset_urn}}
 
     # Execute the GraphQL query
-    result = _execute_graphql(
+    raw_result = _execute_graphql(
         client._graph,
         query=queries_gql,
         variables=variables,
         operation_name="listQueries",
     )
-    return _clean_gql_response(result["listQueries"])
+    result = _clean_gql_response(raw_result["listQueries"])
+
+    # The "subjects" field returns every dataset and schema field associated with the query.
+    # While this is useful for our backend to have, it's not useful here because
+    # we can just look at the query directly. So we'll narrow it down to the unique
+    # list of dataset urns.
+    for query in result["queries"]:
+        if not query.get("subjects"):
+            continue
+        updated_subjects: OrderedSet[str] = OrderedSet()
+        for subject in query["subjects"]:
+            with contextlib.suppress(KeyError):
+                updated_subjects.add(subject["dataset"]["urn"])
+        query["subjects"] = list(updated_subjects)
+
+    return result
 
 
 class AssetLineageDirective(BaseModel):
