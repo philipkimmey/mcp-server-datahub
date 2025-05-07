@@ -1,3 +1,4 @@
+import json
 from typing import Iterable
 
 import pydantic
@@ -26,10 +27,15 @@ def test_get_entity() -> None:
     res = get_entity(_test_urn)
     assert res is not None
 
+    assert res["url"] is not None
+
 
 def test_get_lineage() -> None:
-    res = get_lineage(_test_urn, upstream=True, num_hops=1)
+    res = get_lineage(_test_urn, upstream=True, max_hops=1)
     assert res is not None
+
+    # Ensure that URL injection did something.
+    assert "https://longtailcompanions.acryl.io/" in json.dumps(res)
 
 
 def test_get_dataset_queries() -> None:
