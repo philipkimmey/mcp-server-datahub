@@ -14,7 +14,7 @@ make setup
 
 ```bash
 source .venv/bin/activate
-mcp dev src/mcp_server_datahub/mcp_server.py
+mcp dev src/mcp_server_datahub/__main__.py
 ```
 
 ### Run using an MCP client
