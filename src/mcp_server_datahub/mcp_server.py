@@ -14,7 +14,7 @@ from datahub.utilities.ordered_set import OrderedSet
 from mcp.server.fastmcp import FastMCP
 from pydantic import BaseModel
 
-mcp = FastMCP(name="datahub")
+mcp = FastMCP(name="datahub", stateless_http=True)
 
 
 _mcp_dh_client = contextvars.ContextVar[DataHubClient]("_mcp_dh_client")
