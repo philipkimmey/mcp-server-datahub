@@ -51,7 +51,6 @@ make test
 
 ## Publishing
 
-```bash
-export UV_PUBLISH_TOKEN=...
-make publish
-```
+We use setuptools-scm to manage the version number.
+
+CI will automatically publish a new release to PyPI when a GitHub release is created.
