@@ -1,0 +1,6 @@
+{
+  "permissions": {
+    "allow": ["Bash(rg:*)", "Bash(make:*)"],
+    "deny": []
+  }
+}
