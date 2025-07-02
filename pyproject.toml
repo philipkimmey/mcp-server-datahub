@@ -21,6 +21,7 @@ dev = [
 
 [project.urls]
 "Source" = "https://github.com/acryldata/mcp-server-datahub"
+"Documentation" = "https://docs.datahub.com/docs/features/feature-guides/mcp"
 
 [project.scripts]
 mcp-server-datahub = "mcp_server_datahub.__main__:main"
