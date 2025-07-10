@@ -13,8 +13,11 @@ make setup
 ### Run using the MCP inspector
 
 ```bash
-source .venv/bin/activate
-mcp dev src/mcp_server_datahub/__main__.py
+npx -y @modelcontextprotocol/inspector@latest
+
+# In the UI, select "STDIO" and put in
+# command: <full-path-to-uv>
+# args: --directory path/to/mcp-server-datahub run mcp-server-datahub
 ```
 
 ### Run using an MCP client
