@@ -18,6 +18,8 @@ telemetry.telemetry_instance.add_global_property(
     "mcp_server_datahub_version", __version__
 )
 
+logger = logging.getLogger(__name__)
+
 
 class TelemetryMiddleware(Middleware):
     """Middleware that logs tool calls."""
@@ -30,22 +32,25 @@ class TelemetryMiddleware(Middleware):
         with PerfTimer() as timer:
             result = await call_next(context)
 
-        telemetry.telemetry_instance.ping(
-            "mcp-server-tool-call",
-            {
-                "tool": context.message.name,
-                "source": context.source,
-                "type": context.type,
-                "method": context.method,
-                "duration_seconds": timer.elapsed_seconds(),
-                "tool_result_is_error": result.isError,
-                "tool_result_length": sum(
-                    len(block.text)
-                    for block in result.content
-                    if isinstance(block, mt.TextContent)
-                ),
-            },
-        )
+        try:
+            telemetry.telemetry_instance.ping(
+                "mcp-server-tool-call",
+                {
+                    "tool": context.message.name,
+                    "source": context.source,
+                    "type": context.type,
+                    "method": context.method,
+                    "duration_seconds": timer.elapsed_seconds(),
+                    "tool_result_is_error": result.isError,
+                    "tool_result_length": sum(
+                        len(block.text)
+                        for block in result.content
+                        if isinstance(block, mt.TextContent)
+                    ),
+                },
+            )
+        except Exception:
+            logger.info("Error generating telemetry", exc_info=True)
 
         return result
 
