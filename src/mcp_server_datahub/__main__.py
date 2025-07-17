@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 import click
 import mcp.types as mt
@@ -29,30 +30,39 @@ class TelemetryMiddleware(Middleware):
         context: MiddlewareContext[mt.CallToolRequestParams],
         call_next: CallNext[mt.CallToolRequestParams, mt.CallToolResult],
     ) -> mt.CallToolResult:
+        telemetry_data: dict[str, Any] = {}
         with PerfTimer() as timer:
-            result = await call_next(context)
+            telemetry_data = {
+                "tool": context.message.name,
+                "source": context.source,
+                "type": context.type,
+                "method": context.method,
+            }
+            try:
+                result = await call_next(context)
 
-        try:
-            telemetry.telemetry_instance.ping(
-                "mcp-server-tool-call",
-                {
-                    "tool": context.message.name,
-                    "source": context.source,
-                    "type": context.type,
-                    "method": context.method,
-                    "duration_seconds": timer.elapsed_seconds(),
-                    "tool_result_is_error": result.isError,
-                    "tool_result_length": sum(
+                # BUG: The FastMCP type annotations seem to be incorrect.
+                # This method typically returns fastmcp.tools.tool.ToolResult.
+                if isinstance(result, mt.CallToolResult):
+                    telemetry_data["tool_result_is_error"] = result.isError
+                telemetry_data["tool_result_length"] = (
+                    sum(
                         len(block.text)
                         for block in result.content
                         if isinstance(block, mt.TextContent)
                     ),
-                },
-            )
-        except Exception:
-            logger.info("Error generating telemetry", exc_info=True)
+                )
 
-        return result
+                return result
+
+            except Exception as e:
+                telemetry_data["tool_call_error"] = e.__class__.__name__
+                raise
+            finally:
+                telemetry_data["duration_seconds"] = timer.elapsed_seconds()
+                telemetry.telemetry_instance.ping(
+                    "mcp-server-tool-call", telemetry_data
+                )
 
 
 @click.command()
@@ -77,6 +87,7 @@ def main(transport: Literal["stdio", "sse", "http"], debug: bool) -> None:
     )
 
     if debug:
+        # logging.getLogger("datahub").setLevel(logging.DEBUG)
         mcp.add_middleware(LoggingMiddleware(include_payloads=True))
     mcp.add_middleware(TelemetryMiddleware())
 
