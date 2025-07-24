@@ -47,42 +47,48 @@ async def test_list_tools(mcp_client: Client) -> None:
     assert len(tools) > 0
 
 
-def test_basic_search() -> None:
-    res = search.fn(query="*", num_results=10)
+@pytest.mark.anyio
+async def test_basic_search() -> None:
+    res = await search.fn(query="*", num_results=10)
     assert isinstance(res, dict)
     assert list(res.keys()) == ["count", "total", "searchResults", "facets"]
 
 
-def test_search_no_results() -> None:
-    res = search.fn(query="*", num_results=0)
+@pytest.mark.anyio
+async def test_search_no_results() -> None:
+    res = await search.fn(query="*", num_results=0)
     assert isinstance(res, dict)
     assert list(res.keys()) == ["total", "facets"]
 
 
-def test_get_dataset() -> None:
-    res = get_entity.fn(_test_urn)
+@pytest.mark.anyio
+async def test_get_dataset() -> None:
+    res = await get_entity.fn(_test_urn)
     assert res is not None
 
     assert res["url"] is not None
 
 
-def test_get_domain() -> None:
-    res = get_entity.fn(_test_domain)
+@pytest.mark.anyio
+async def test_get_domain() -> None:
+    res = await get_entity.fn(_test_domain)
     assert res is not None
 
     assert res["url"] is not None
 
 
-def test_get_lineage() -> None:
-    res = get_lineage.fn(_test_urn, upstream=True, max_hops=1)
+@pytest.mark.anyio
+async def test_get_lineage() -> None:
+    res = await get_lineage.fn(_test_urn, upstream=True, max_hops=1)
     assert res is not None
 
     # Ensure that URL injection did something.
     assert "https://longtailcompanions.acryl.io/" in json.dumps(res)
 
 
-def test_get_dataset_queries() -> None:
-    res = get_dataset_queries.fn(_test_urn)
+@pytest.mark.anyio
+async def test_get_dataset_queries() -> None:
+    res = await get_dataset_queries.fn(_test_urn)
     assert res is not None
 
 
