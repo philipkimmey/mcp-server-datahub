@@ -25,7 +25,7 @@ from datahub.sdk.search_filters import Filter, FilterDsl, load_filters
 from datahub.utilities.ordered_set import OrderedSet
 from fastmcp import FastMCP
 from pydantic import BaseModel
-from datahub.metadata.urns import SchemaFieldUrn, DatasetUrn
+from datahub.metadata.urns import SchemaFieldUrn, DatasetUrn, Urn
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -114,12 +114,12 @@ def _inject_urls_for_urns(
 
 def _maybe_convert_to_schema_field_urn(urn: str, column: Optional[str]) -> str:
     if column is not None:
-        try:
-            dataset_urn = DatasetUrn.from_string(urn)
-            urn = str(SchemaFieldUrn(dataset_urn, column))
-        except Exception:
-            # If input urn is not a dataset urn, leave as is
-            pass
+        maybe_dataset_urn = Urn.from_string(urn)
+        if not isinstance(maybe_dataset_urn, DatasetUrn):
+            raise ValueError(
+                f"Input urn should be a dataset urn if column is provided, but got {urn}."
+            )
+        urn = str(SchemaFieldUrn(maybe_dataset_urn, column))
     return urn
 
 
@@ -278,7 +278,7 @@ def search(
 
 
 @mcp.tool(
-    description="Use this tool to get the SQL queries associated with a dataset or a datset column."
+    description="Use this tool to get the SQL queries associated with a dataset or a dataset column."
 )
 @async_background
 def get_dataset_queries(

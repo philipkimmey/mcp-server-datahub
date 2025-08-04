@@ -85,7 +85,7 @@ async def main(urn_or_query: Optional[str]) -> None:
         print(f"Getting queries: {urn}")
         print(
             json.dumps(
-                await _call_tool(mcp_client, "get_dataset_queries", dataset_urn=urn),
+                await _call_tool(mcp_client, "get_dataset_queries", urn=urn),
                 indent=2,
             )
         )
