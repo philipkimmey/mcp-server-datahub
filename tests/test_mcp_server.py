@@ -129,3 +129,5 @@ async def test_get_lineage() -> None:
 async def test_get_dataset_queries() -> None:
     res = await get_dataset_queries.fn(_test_urn)
     assert res is not None
+    assert res.get("queries") is not None
+    assert len(res.get("queries")) > 0
