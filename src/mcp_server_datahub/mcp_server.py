@@ -227,6 +227,11 @@ def _is_semantic_search_enabled() -> bool:
     return get_boolean_env_variable("SEMANTIC_SEARCH_ENABLED", default=False)
 
 
+def is_openai_search_enabled() -> bool:
+    """Check if the OpenAI search response format is enabled via environment variable."""
+    return get_boolean_env_variable("OPENAI_SEARCH_ENABLED", default=False)
+
+
 def clean_gql_response(response: Any) -> Any:
     if isinstance(response, dict):
         banned_keys = {
@@ -267,6 +272,59 @@ def clean_get_entity_response(raw_response: dict) -> dict:
                     field.pop("isPartOfKey", None)
 
     return response
+
+
+def _extract_search_result_title(entity: Any, fallback: str) -> str:
+    if not isinstance(entity, dict):
+        return fallback
+
+    properties = entity.get("properties")
+    if isinstance(properties, dict):
+        for key in ("name", "title", "displayName"):
+            value = properties.get(key)
+            if value and value.strip():
+                return value
+
+    for key in ("displayName", "name", "urn"):
+        value = entity.get(key)
+        if value and value.strip():
+            return value
+
+    return fallback
+
+
+def _openai_format_search_results(
+    cleaned_response: Any, client: DataHubClient
+) -> Dict[str, List[Dict[str, str]]]:
+    search_results: List[Any] = []
+    if isinstance(cleaned_response, dict):
+        maybe_results = cleaned_response.get("searchResults", [])
+        if isinstance(maybe_results, list):
+            search_results = maybe_results
+
+    openai_results: List[Dict[str, str]] = []
+    for result_item in search_results:
+        if not isinstance(result_item, dict):
+            continue
+
+        entity = result_item.get("entity") or {}
+        if not isinstance(entity, dict):
+            continue
+
+        urn = entity.get("urn")
+        if not urn:
+            continue
+
+        title = _extract_search_result_title(entity, urn)
+
+        url = entity.get("url")
+        if not url:
+            with contextlib.suppress(Exception):
+                url = client._graph.url_for(urn)
+
+        openai_results.append({"id": urn, "title": title, "url": url or urn})
+
+    return {"results": openai_results}
 
 
 @mcp.tool(description="Get an entity by its DataHub URN.")
@@ -349,7 +407,12 @@ def _search_implementation(
         response.pop("searchResults", None)
         response.pop("count", None)
 
-    return clean_gql_response(response)
+    cleaned_response = clean_gql_response(response)
+
+    if not is_openai_search_enabled():
+        return cleaned_response
+
+    return _openai_format_search_results(cleaned_response, client)
 
 
 # Define enhanced search tool when semantic search is enabled

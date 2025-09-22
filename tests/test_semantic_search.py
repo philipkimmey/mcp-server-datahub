@@ -11,6 +11,7 @@ from fastmcp import Client, FastMCP
 from mcp.types import TextContent
 
 from mcp_server_datahub.mcp_server import (
+    _openai_format_search_results,
     _search_implementation,
     search_gql,
     semantic_search_gql,
@@ -268,6 +269,103 @@ class TestSearchImplementation:
         assert "count" not in result
         assert "total" in result  # total should remain
         assert "facets" in result  # facets should remain (non-empty so not cleaned out)
+
+    @mock.patch("mcp_server_datahub.mcp_server.is_openai_search_enabled", return_value=True)
+    @mock.patch("mcp_server_datahub.mcp_server.get_datahub_client")
+    @mock.patch("mcp_server_datahub.mcp_server._execute_graphql")
+    def test_search_implementation_openai_format(
+        self,
+        mock_execute_graphql,
+        mock_get_client,
+        _mock_openai_enabled,
+    ):
+        """Ensure responses are converted to OpenAI search format when enabled."""
+
+        mock_graph = mock.Mock()
+        mock_graph.url_for.return_value = "https://datahub.example.com/entity/test"
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_dataset,PROD)"
+        mock_response = {
+            "scrollAcrossEntities": {
+                "count": 1,
+                "total": 1,
+                "searchResults": [
+                    {
+                        "entity": {
+                            "urn": urn,
+                            "properties": {"name": "Test Dataset"},
+                        }
+                    }
+                ],
+            }
+        }
+        mock_execute_graphql.return_value = mock_response
+
+        result = _search_implementation(
+            query="*", filters=None, num_results=5, search_strategy="keyword"
+        )
+
+        assert list(result.keys()) == ["results"]
+        assert result["results"] == [
+            {
+                "id": urn,
+                "title": "Test Dataset",
+                "url": "https://datahub.example.com/entity/test",
+            }
+        ]
+        mock_graph.url_for.assert_called_once_with(urn)
+
+    def test_openai_format_search_results_helper(self) -> None:
+        """Directly verify the OpenAI formatting helper behavior."""
+
+        mock_graph = mock.Mock()
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+
+        urn_with_url = "urn:li:dataset:(urn:li:dataPlatform:db,my_table,PROD)"
+        urn_without_url = "urn:li:dataset:(urn:li:dataPlatform:db,other_table,PROD)"
+
+        cleaned_response = {
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": urn_with_url,
+                        "url": "https://datahub.example.com/entity/my_table",
+                        "properties": {"name": "Primary Dataset"},
+                    }
+                },
+                {
+                    "entity": {
+                        "urn": urn_without_url,
+                        "properties": {"displayName": "Fallback Dataset"},
+                    }
+                },
+            ]
+        }
+
+        mock_graph.url_for.return_value = "https://datahub.example.com/entity/other_table"
+
+        result = _openai_format_search_results(cleaned_response, mock_client)
+
+        assert result == {
+            "results": [
+                {
+                    "id": urn_with_url,
+                    "title": "Primary Dataset",
+                    "url": "https://datahub.example.com/entity/my_table",
+                },
+                {
+                    "id": urn_without_url,
+                    "title": "Fallback Dataset",
+                    "url": "https://datahub.example.com/entity/other_table",
+                },
+            ]
+        }
+
+        mock_graph.url_for.assert_called_once_with(urn_without_url)
 
 
 @pytest.mark.anyio
