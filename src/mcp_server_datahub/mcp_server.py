@@ -227,6 +227,11 @@ def _is_semantic_search_enabled() -> bool:
     return get_boolean_env_variable("SEMANTIC_SEARCH_ENABLED", default=False)
 
 
+def is_openai_search_enabled() -> bool:
+    """Check if the OpenAI search response format is enabled via environment variable."""
+    return get_boolean_env_variable("OPENAI_SEARCH_ENABLED", default=False)
+
+
 def clean_gql_response(response: Any) -> Any:
     if isinstance(response, dict):
         banned_keys = {
@@ -267,6 +272,25 @@ def clean_get_entity_response(raw_response: dict) -> dict:
                     field.pop("isPartOfKey", None)
 
     return response
+
+
+def _extract_search_result_title(entity: Any, fallback: str) -> str:
+    if not isinstance(entity, dict):
+        return fallback
+
+    properties = entity.get("properties")
+    if isinstance(properties, dict):
+        for key in ("name", "title", "displayName"):
+            value = properties.get(key)
+            if isinstance(value, str) and value.strip():
+                return value
+
+    for key in ("displayName", "name", "urn"):
+        value = entity.get(key)
+        if isinstance(value, str) and value.strip():
+            return value
+
+    return fallback
 
 
 @mcp.tool(description="Get an entity by its DataHub URN.")
@@ -349,7 +373,57 @@ def _search_implementation(
         response.pop("searchResults", None)
         response.pop("count", None)
 
-    return clean_gql_response(response)
+    cleaned_response = clean_gql_response(response)
+
+    if not is_openai_search_enabled():
+        return cleaned_response
+
+    search_results: List[Any] = []
+    if isinstance(cleaned_response, dict):
+        maybe_results = cleaned_response.get("searchResults", [])
+        if isinstance(maybe_results, list):
+            search_results = maybe_results
+
+    openai_results: List[Dict[str, str]] = []
+    for idx, result_item in enumerate(search_results):
+        if not isinstance(result_item, dict):
+            continue
+
+        entity = result_item.get("entity", {})
+        if not isinstance(entity, dict):
+            entity = {}
+
+        urn_value = entity.get("urn")
+        urn: Optional[str]
+        if isinstance(urn_value, str):
+            urn = urn_value
+        elif urn_value is not None:
+            urn = str(urn_value)
+        else:
+            urn = None
+
+        result_id = urn or f"result-{idx + 1}"
+        title = _extract_search_result_title(entity, result_id)
+
+        url = None
+        url_value = entity.get("url")
+        if isinstance(url_value, str) and url_value.strip():
+            url = url_value
+        elif urn:
+            with contextlib.suppress(Exception):
+                maybe_url = client._graph.url_for(urn)
+                if isinstance(maybe_url, str) and maybe_url.strip():
+                    url = maybe_url
+
+        openai_results.append(
+            {
+                "id": result_id,
+                "title": title,
+                "url": url or result_id,
+            }
+        )
+
+    return {"results": openai_results}
 
 
 # Define enhanced search tool when semantic search is enabled

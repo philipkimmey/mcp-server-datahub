@@ -269,6 +269,54 @@ class TestSearchImplementation:
         assert "total" in result  # total should remain
         assert "facets" in result  # facets should remain (non-empty so not cleaned out)
 
+    @mock.patch("mcp_server_datahub.mcp_server.is_openai_search_enabled", return_value=True)
+    @mock.patch("mcp_server_datahub.mcp_server.get_datahub_client")
+    @mock.patch("mcp_server_datahub.mcp_server._execute_graphql")
+    def test_search_implementation_openai_format(
+        self,
+        mock_execute_graphql,
+        mock_get_client,
+        _mock_openai_enabled,
+    ):
+        """Ensure responses are converted to OpenAI search format when enabled."""
+
+        mock_graph = mock.Mock()
+        mock_graph.url_for.return_value = "https://datahub.example.com/entity/test"
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_dataset,PROD)"
+        mock_response = {
+            "scrollAcrossEntities": {
+                "count": 1,
+                "total": 1,
+                "searchResults": [
+                    {
+                        "entity": {
+                            "urn": urn,
+                            "properties": {"name": "Test Dataset"},
+                        }
+                    }
+                ],
+            }
+        }
+        mock_execute_graphql.return_value = mock_response
+
+        result = _search_implementation(
+            query="*", filters=None, num_results=5, search_strategy="keyword"
+        )
+
+        assert list(result.keys()) == ["results"]
+        assert result["results"] == [
+            {
+                "id": urn,
+                "title": "Test Dataset",
+                "url": "https://datahub.example.com/entity/test",
+            }
+        ]
+        mock_graph.url_for.assert_called_once_with(urn)
+
 
 @pytest.mark.anyio
 async def test_tool_binding_basic_search() -> None:
