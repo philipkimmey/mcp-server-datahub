@@ -11,6 +11,7 @@ from fastmcp import Client, FastMCP
 from mcp.types import TextContent
 
 from mcp_server_datahub.mcp_server import (
+    _openai_format_search_results,
     _search_implementation,
     search_gql,
     semantic_search_gql,
@@ -316,6 +317,55 @@ class TestSearchImplementation:
             }
         ]
         mock_graph.url_for.assert_called_once_with(urn)
+
+    def test_openai_format_search_results_helper(self) -> None:
+        """Directly verify the OpenAI formatting helper behavior."""
+
+        mock_graph = mock.Mock()
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+
+        urn_with_url = "urn:li:dataset:(urn:li:dataPlatform:db,my_table,PROD)"
+        urn_without_url = "urn:li:dataset:(urn:li:dataPlatform:db,other_table,PROD)"
+
+        cleaned_response = {
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": urn_with_url,
+                        "url": "https://datahub.example.com/entity/my_table",
+                        "properties": {"name": "Primary Dataset"},
+                    }
+                },
+                {
+                    "entity": {
+                        "urn": urn_without_url,
+                        "properties": {"displayName": "Fallback Dataset"},
+                    }
+                },
+            ]
+        }
+
+        mock_graph.url_for.return_value = "https://datahub.example.com/entity/other_table"
+
+        result = _openai_format_search_results(cleaned_response, mock_client)
+
+        assert result == {
+            "results": [
+                {
+                    "id": urn_with_url,
+                    "title": "Primary Dataset",
+                    "url": "https://datahub.example.com/entity/my_table",
+                },
+                {
+                    "id": urn_without_url,
+                    "title": "Fallback Dataset",
+                    "url": "https://datahub.example.com/entity/other_table",
+                },
+            ]
+        }
+
+        mock_graph.url_for.assert_called_once_with(urn_without_url)
 
 
 @pytest.mark.anyio
