@@ -3,9 +3,11 @@ import contextvars
 import functools
 import html
 import inspect
+import json
 import pathlib
 import re
 from typing import (
+    Annotated,
     Any,
     Awaitable,
     Callable,
@@ -29,8 +31,9 @@ from datahub.sdk.search_client import compile_filters
 from datahub.sdk.search_filters import Filter, FilterDsl, load_filters
 from datahub.utilities.ordered_set import OrderedSet
 from fastmcp import FastMCP
+from fastmcp.tools.tool import TextContent, ToolResult
 from loguru import logger
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 _P = ParamSpec("_P")
 _R = TypeVar("_R")
@@ -274,6 +277,21 @@ def clean_get_entity_response(raw_response: dict) -> dict:
     return response
 
 
+def _get_entity_details(client: DataHubClient, urn: str) -> dict:
+    variables = {"urn": urn}
+    result = _execute_graphql(
+        client._graph,
+        query=entity_details_fragment_gql,
+        variables=variables,
+        operation_name="GetEntity",
+    )["entity"]
+
+    inject_urls_for_urns(client._graph, result, [""])
+    truncate_descriptions(result)
+
+    return clean_get_entity_response(result)
+
+
 def _extract_search_result_title(entity: Any, fallback: str) -> str:
     if not isinstance(entity, dict):
         return fallback
@@ -336,19 +354,77 @@ def get_entity(urn: str) -> dict:
         # TODO: Ideally we use the `exists` field to check this, and also deal with soft-deleted entities.
         raise ItemNotFoundError(f"Entity {urn} not found")
 
-    # Execute the GraphQL query
-    variables = {"urn": urn}
-    result = _execute_graphql(
-        client._graph,
-        query=entity_details_fragment_gql,
-        variables=variables,
-        operation_name="GetEntity",
-    )["entity"]
+    return _get_entity_details(client, urn)
 
-    inject_urls_for_urns(client._graph, result, [""])
-    truncate_descriptions(result)
 
-    return clean_get_entity_response(result)
+@mcp.tool(
+    description=(
+        "Fetch a DataHub entity with details formatted for OpenAI's fetch tool response."
+    )
+)
+@async_background
+def fetch(document_id: Annotated[str, Field(alias="id")]) -> ToolResult:
+    """Return entity details plus lineage formatted for OpenAI's fetch requirements."""
+
+    client = get_datahub_client()
+
+    if not client._graph.exists(document_id):
+        raise ItemNotFoundError(f"Entity {document_id} not found")
+
+    entity = _get_entity_details(client, document_id)
+
+    url = entity.get("url")
+    if not url:
+        with contextlib.suppress(Exception):
+            url = client._graph.url_for(document_id)
+
+    lineage: Dict[str, Any] = {}
+    try:
+        lineage_api = AssetLineageAPI(client._graph)
+        asset_lineage_directive = AssetLineageDirective(
+            urn=document_id,
+            upstream=True,
+            downstream=True,
+            max_hops=1,
+            extra_filters=None,
+        )
+        lineage = lineage_api.get_lineage(asset_lineage_directive)
+        inject_urls_for_urns(
+            client._graph, lineage, ["*.searchResults[].entity"]
+        )
+        truncate_descriptions(lineage)
+    except Exception as exc:  # pragma: no cover - defensive guard
+        logger.warning(f"Unable to retrieve lineage for {document_id}: {exc}")
+        lineage = {}
+
+    document_payload = {"entity": entity, "lineage": lineage}
+    text_payload = json.dumps(document_payload, ensure_ascii=False)
+
+    metadata: Dict[str, Any] = {"source": "datahub"}
+    if entity_type := entity.get("type") or entity.get("entityType"):
+        metadata["entityType"] = entity_type
+    platform = entity.get("platform")
+    if isinstance(platform, dict):
+        if platform_urn := platform.get("urn"):
+            metadata["platformUrn"] = platform_urn
+        if platform_name := platform.get("name"):
+            metadata["platformName"] = platform_name
+
+    document = {
+        "id": document_id,
+        "title": _extract_search_result_title(entity, document_id),
+        "text": text_payload,
+        "url": url or document_id,
+        "metadata": metadata,
+    }
+
+    return ToolResult(
+        content=[
+            TextContent(
+                type="text", text=json.dumps(document, ensure_ascii=False)
+            )
+        ]
+    )
 
 
 def _search_implementation(

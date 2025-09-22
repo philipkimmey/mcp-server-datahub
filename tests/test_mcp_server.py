@@ -135,6 +135,23 @@ async def test_get_domain() -> None:
 
 
 @pytest.mark.anyio
+async def test_fetch_tool(mcp_client: Client) -> None:
+    result = await mcp_client.call_tool("fetch", {"id": _test_urn})
+    assert result.content, "Tool result should have content"
+
+    content = assert_type(TextContent, result.content[0])
+    document = json.loads(content.text)
+
+    assert document["id"] == _test_urn
+    assert document["url"]
+    assert document["metadata"]["source"] == "datahub"
+
+    payload = json.loads(document["text"])
+    assert payload["entity"]["urn"] == _test_urn
+    assert isinstance(payload.get("lineage"), dict)
+
+
+@pytest.mark.anyio
 async def test_get_lineage() -> None:
     res = await get_lineage.fn(_test_urn, column=None, upstream=True, max_hops=1)
     assert res is not None
