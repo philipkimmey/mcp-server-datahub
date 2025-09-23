@@ -612,14 +612,20 @@ def openai_search(query: str) -> ToolResult:
     compatible with OpenAI's search tool specification.
 
     The search uses intelligent defaults:
-    - No filters (searches all entities)
+    - Filters results to the dbt data platform
     - Returns up to 10 results
     - Uses keyword search strategy
     - Results are formatted as JSON with id, title, and url fields
     """
     # Use defaults that work well for OpenAI integration
+    dbt_filter: Filter = FilterDsl.custom_filter(
+        field="dataPlatform", condition="EQUAL", values=["dbt"]
+    )
     result = _search_implementation(
-        query, filters=None, num_results=10, search_strategy="keyword"
+        query,
+        filters=dbt_filter,
+        num_results=10,
+        search_strategy="keyword",
     )
 
     # Convert dict result to OpenAI format and wrap in ToolResult
