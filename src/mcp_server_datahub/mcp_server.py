@@ -370,7 +370,7 @@ def fetch(document_id: Annotated[str, Field(alias="id")]) -> ToolResult:
 
     if not client._graph.exists(document_id):
         raise ItemNotFoundError(f"Entity {document_id} not found")
-
+    
     entity = _get_entity_details(client, document_id)
 
     url = entity.get("url")
@@ -389,9 +389,7 @@ def fetch(document_id: Annotated[str, Field(alias="id")]) -> ToolResult:
             extra_filters=None,
         )
         lineage = lineage_api.get_lineage(asset_lineage_directive)
-        inject_urls_for_urns(
-            client._graph, lineage, ["*.searchResults[].entity"]
-        )
+        inject_urls_for_urns(client._graph, lineage, ["*.searchResults[].entity"])
         truncate_descriptions(lineage)
     except Exception as exc:  # pragma: no cover - defensive guard
         logger.warning(f"Unable to retrieve lineage for {document_id}: {exc}")
@@ -420,9 +418,7 @@ def fetch(document_id: Annotated[str, Field(alias="id")]) -> ToolResult:
 
     return ToolResult(
         content=[
-            TextContent(
-                type="text", text=json.dumps(document, ensure_ascii=False)
-            )
+            TextContent(type="text", text=json.dumps(document, ensure_ascii=False))
         ]
     )
 
@@ -484,11 +480,7 @@ def _search_implementation(
         response.pop("count", None)
 
     cleaned_response = clean_gql_response(response)
-
-    if not is_openai_search_enabled():
-        return cleaned_response
-
-    return _openai_format_search_results(cleaned_response, client)
+    return cleaned_response
 
 
 # Define enhanced search tool when semantic search is enabled
@@ -610,6 +602,36 @@ def search(
     ```
     """
     return _search_implementation(query, filters, num_results, "keyword")
+
+
+def openai_search(query: str) -> ToolResult:
+    """Search across DataHub entities with OpenAI-compatible response format.
+
+    This is a simplified search interface that conforms to OpenAI requirements
+    by only accepting a query parameter. It returns results in JSON format
+    compatible with OpenAI's search tool specification.
+
+    The search uses intelligent defaults:
+    - No filters (searches all entities)
+    - Returns up to 10 results
+    - Uses keyword search strategy
+    - Results are formatted as JSON with id, title, and url fields
+    """
+    # Use defaults that work well for OpenAI integration
+    result = _search_implementation(
+        query, filters=None, num_results=10, search_strategy="keyword"
+    )
+
+    # Convert dict result to OpenAI format and wrap in ToolResult
+    client = get_datahub_client()
+    openai_formatted = _openai_format_search_results(result, client)
+    return ToolResult(
+        content=[
+            TextContent(
+                type="text", text=json.dumps(openai_formatted, ensure_ascii=False)
+            )
+        ]
+    )
 
 
 @mcp.tool(
@@ -781,7 +803,12 @@ def get_lineage(
 
 def register_search_tools(mcp_instance: FastMCP) -> None:
     """Register the appropriate search tool based on environment configuration."""
-    if _is_semantic_search_enabled():
+    if is_openai_search_enabled():
+        # Register OpenAI-compatible search tool with only query parameter
+        mcp_instance.tool(name="search", description=openai_search.__doc__)(
+            async_background(openai_search)
+        )
+    elif _is_semantic_search_enabled():
         # Note: Actual semantic search availability is validated at runtime when used
         # This allows the tool to be registered even if validation would fail,
         # but provides clear error messages when semantic search is actually attempted

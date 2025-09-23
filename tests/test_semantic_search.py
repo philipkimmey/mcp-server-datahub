@@ -270,7 +270,9 @@ class TestSearchImplementation:
         assert "total" in result  # total should remain
         assert "facets" in result  # facets should remain (non-empty so not cleaned out)
 
-    @mock.patch("mcp_server_datahub.mcp_server.is_openai_search_enabled", return_value=True)
+    @mock.patch(
+        "mcp_server_datahub.mcp_server.is_openai_search_enabled", return_value=True
+    )
     @mock.patch("mcp_server_datahub.mcp_server.get_datahub_client")
     @mock.patch("mcp_server_datahub.mcp_server._execute_graphql")
     def test_search_implementation_openai_format(
@@ -308,15 +310,19 @@ class TestSearchImplementation:
             query="*", filters=None, num_results=5, search_strategy="keyword"
         )
 
-        assert list(result.keys()) == ["results"]
-        assert result["results"] == [
-            {
-                "id": urn,
-                "title": "Test Dataset",
-                "url": "https://datahub.example.com/entity/test",
-            }
-        ]
-        mock_graph.url_for.assert_called_once_with(urn)
+        # _search_implementation now always returns dict format
+        # Test that we get the cleaned GraphQL response
+        assert isinstance(result, dict)
+        assert "count" in result
+        assert "searchResults" in result
+        assert len(result["searchResults"]) == 1
+
+        # Test that the entity data is properly structured
+        search_result = result["searchResults"][0]
+        assert "entity" in search_result
+        entity = search_result["entity"]
+        assert entity["urn"] == urn
+        assert entity["properties"]["name"] == "Test Dataset"
 
     def test_openai_format_search_results_helper(self) -> None:
         """Directly verify the OpenAI formatting helper behavior."""
@@ -346,7 +352,9 @@ class TestSearchImplementation:
             ]
         }
 
-        mock_graph.url_for.return_value = "https://datahub.example.com/entity/other_table"
+        mock_graph.url_for.return_value = (
+            "https://datahub.example.com/entity/other_table"
+        )
 
         result = _openai_format_search_results(cleaned_response, mock_client)
 
@@ -366,6 +374,59 @@ class TestSearchImplementation:
         }
 
         mock_graph.url_for.assert_called_once_with(urn_without_url)
+
+    @mock.patch("mcp_server_datahub.mcp_server.get_datahub_client")
+    @mock.patch("mcp_server_datahub.mcp_server._execute_graphql")
+    def test_openai_search_function(self, mock_execute_graphql, mock_get_client):
+        """Test the dedicated openai_search function."""
+        from mcp_server_datahub.mcp_server import openai_search
+
+        mock_graph = mock.Mock()
+        mock_graph.url_for.return_value = "https://datahub.example.com/entity/test"
+        mock_client = mock.Mock()
+        mock_client._graph = mock_graph
+        mock_get_client.return_value = mock_client
+
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_dataset,PROD)"
+        mock_response = {
+            "scrollAcrossEntities": {
+                "count": 1,
+                "total": 1,
+                "searchResults": [
+                    {
+                        "entity": {
+                            "urn": urn,
+                            "properties": {"name": "Test Dataset"},
+                        }
+                    }
+                ],
+            }
+        }
+        mock_execute_graphql.return_value = mock_response
+
+        result = openai_search("test query")
+
+        # Should always return a ToolResult with JSON content
+        from fastmcp.tools.tool import ToolResult
+
+        assert isinstance(result, ToolResult)
+        assert len(result.content) == 1
+        assert result.content[0].type == "text"
+
+        # Parse the JSON from the text content
+        import json
+
+        parsed_result = json.loads(result.content[0].text)
+
+        assert list(parsed_result.keys()) == ["results"]
+        assert parsed_result["results"] == [
+            {
+                "id": urn,
+                "title": "Test Dataset",
+                "url": "https://datahub.example.com/entity/test",
+            }
+        ]
+        mock_graph.url_for.assert_called_once_with(urn)
 
 
 @pytest.mark.anyio
