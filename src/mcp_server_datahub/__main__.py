@@ -45,6 +45,9 @@ def main(transport: Literal["stdio", "sse", "http"], debug: bool) -> None:
             mcp.run(transport=transport, show_banner=False, stateless_http=True)
         else:
             mcp.run(transport=transport, show_banner=False)
+        mcp.remove_tool("get_entity")
+        mcp.remove_tool("get_dataset_queries")
+        mcp.remove_tool("get_lineage")
 
 
 if __name__ == "__main__":
