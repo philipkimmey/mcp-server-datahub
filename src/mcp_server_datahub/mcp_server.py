@@ -618,8 +618,12 @@ def openai_search(query: str) -> ToolResult:
     - Results are formatted as JSON with id, title, and url fields
     """
     # Use defaults that work well for OpenAI integration
+    dbt_filter: Filter = FilterDsl.custom_filter(
+       field="platform", condition="EQUAL", values=["urn:li:dataPlatform:dbt"]
+    )
+
     result = _search_implementation(
-        query, filters=None, num_results=10, search_strategy="keyword"
+        query, filters=dbt_filter, num_results=10, search_strategy="keyword"
     )
 
     # Convert dict result to OpenAI format and wrap in ToolResult
@@ -826,3 +830,6 @@ def register_search_tools(mcp_instance: FastMCP) -> None:
 
 # Register search tools on the global MCP instance
 register_search_tools(mcp)
+mcp.remove_tool("get_entity")
+mcp.remove_tool("get_dataset_queries")
+mcp.remove_tool("get_lineage")
